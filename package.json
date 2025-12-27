@@ -1,0 +1,16 @@
+{
+  "name": "minitel-controller",
+  "version": "1.0.0",
+  "description": "Script Node.js pour interagir avec un Minitel via port série",
+  "main": "minitel.js",
+  "type": "module",
+  "scripts": {
+    "start": "node demo.js"
+  },
+  "keywords": ["minitel", "videotex", "serial"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "serialport": "^12.0.0"
+  }
+}

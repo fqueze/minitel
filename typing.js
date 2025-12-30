@@ -7,7 +7,6 @@ let words = [];
 let currentWordIndex = 0;
 let targetWord = '';
 let currentPosition = 0;
-let echoClearTimer = null;
 
 // French AZERTY keyboard layout (simplified, uppercase only)
 const KEYBOARD_LAYOUT = [
@@ -38,7 +37,9 @@ async function main() {
 
     minitel = new Minitel(PORT);
     await minitel.connect();
-    await sleep(300);
+
+    // Désactiver l'écho local pour éviter l'affichage automatique des touches
+    await minitel.disableLocalEcho();
 
     // Setup the screen
     await minitel.clear();
@@ -242,6 +243,12 @@ async function handleInput(data) {
 
       console.log(`Typed: ${typedChar}`);
 
+      // Display the typed character in the middle area
+      minitel.moveCursor(9, 18);
+      minitel.setFormat('double');
+      minitel.setFormat('white');
+      minitel.writeText(typedChar);
+
       // Check if it matches the expected character
       const isCorrect = (currentPosition < targetWord.length &&
                          typedChar === targetWord[currentPosition]);
@@ -261,33 +268,14 @@ async function handleInput(data) {
 
         // Check if word is complete
         if (currentPosition === targetWord.length) {
-          // Cancel any pending echo clear
-          if (echoClearTimer) {
-            clearTimeout(echoClearTimer);
-            echoClearTimer = null;
-          }
           await wordComplete();
-          return; // Don't clear echo, BRAVO message is showing
+          return;
         }
       } else {
         console.log(`✗ Wrong key. Expected: ${targetWord[currentPosition]}`);
         // Beep on wrong key
         await minitel.beep();
       }
-
-      // Cancel any pending echo clear before scheduling a new one
-      if (echoClearTimer) {
-        clearTimeout(echoClearTimer);
-      }
-
-      // Clear the echo area and reposition cursor after a delay (non-blocking)
-      echoClearTimer = setTimeout(() => {
-        minitel.moveCursor(9, 18);
-        minitel.setFormat('double');
-        minitel.writeText('  '); // Clear with spaces
-        positionCursorForInput();
-        echoClearTimer = null;
-      }, 300);
     }
   }
 }

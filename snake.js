@@ -5,7 +5,7 @@ const PORT = process.env.MINITEL_PORT || '/dev/tty.usbserial-A5069RR4';
 
 // Configuration du jeu
 const GAME_AREA = {
-  top: 2,
+  top: 1,
   bottom: 23,
   left: 2,
   right: 39
@@ -49,6 +49,7 @@ class SnakeGame {
     ];
 
     this.direction = DIRECTION.RIGHT;
+    this.food = null; // Sera généré au démarrage du jeu
     this.score = 0;
     this.gameOver = false;
     this.gameStarted = false;
@@ -57,20 +58,45 @@ class SnakeGame {
 
     await this.drawUI();
     this.drawBorder();
-    this.drawSnake();
-    this.spawnFood();
 
-    // Afficher un message pour inviter à démarrer
-    const msgRow = Math.floor((GAME_AREA.top + GAME_AREA.bottom) / 2) + 5;
-    const msgCol = Math.floor((GAME_AREA.left + GAME_AREA.right) / 2) - 10;
+    // Afficher les instructions de contrôle (serpent et nourriture seront dessinés au démarrage)
+    this.showInstructions();
+  }
+
+  showInstructions() {
     this.minitel.setFormat('very-light');
-    this.minitel.moveCursor(msgRow, msgCol);
-    this.minitel.writeText('Appuyez sur une touche');
+
+    // Titre (rangée 10, centré)
+    // "Touches de contrôle :" = 21 caractères, centre = (40-21)/2 = 9.5 ≈ 10
+    this.minitel.moveCursor(8, 10);
+    this.minitel.writeText('Touches de contrôle :');
+
+    // Ligne 1 : Z (haut) et 2 (haut)
+    // "Z              2" = 18 caractères, centre = (40-18)/2 = 11
+    this.minitel.moveCursor(10, 12);
+    this.minitel.writeText('Z              2');
+
+    // Ligne 2 : Q S D et 4 6
+    // "Q S D    ou    4   6" = 20 caractères, centre = (40-20)/2 = 10
+    this.minitel.moveCursor(12, 10);
+    this.minitel.writeText('Q S D    ou    4   6');
+
+    // Ligne vide (rangée 15)
+
+    // Ligne 3 : 8 (bas, aligné avec 2)
+    this.minitel.moveCursor(14, 27);
+    this.minitel.writeText('8');
+
+    // Message de démarrage (centré)
+    this.minitel.moveCursor(17, 3);
+    this.minitel.writeText('Appuyer sur une touche pour démarrer');
+
     this.minitel.setFormat('black');
   }
 
   async drawUI() {
     await this.minitel.clear();
+    // On utilise la ligne 0 pour le titre, donc pas besoin de la nettoyer
     this.minitel.home();
   }
 
@@ -78,12 +104,12 @@ class SnakeGame {
     const width = GAME_AREA.right - GAME_AREA.left + 1;
     const totalWidth = width + 2;
 
-    // LIGNE DU HAUT avec "SNAKE" intégré
+    // LIGNE 0 avec "SNAKE" intégré
     const title = "SNAKE";
     const leftSpaces = Math.floor((totalWidth - title.length) / 2);
     const rightSpaces = totalWidth - leftSpaces - title.length;
 
-    this.minitel.moveCursor(GAME_AREA.top - 1, GAME_AREA.left - 1);
+    this.minitel.moveCursor(0, GAME_AREA.left - 1);
     this.minitel.setFormat('white-background');
     this.minitel.setFormat('black');
     this.minitel.writeRepeated(' ', leftSpaces);
@@ -353,39 +379,24 @@ class SnakeGame {
       this.startGameIfNeeded();
     }
 
-    // Effacer les caractères parasites
-    for (const segment of this.snake) {
-      this.minitel.moveCursor(segment.row, segment.col + 1);
-      this.minitel.writeText(' ');
-      this.minitel.writeText(' ');
-    }
-
-    if (this.food) {
-      this.minitel.moveCursor(this.food.row, this.food.col + 1);
-      this.minitel.writeText(' ');
-    }
-
-    if (this.lastTailPos) {
-      this.minitel.moveCursor(this.lastTailPos.row, this.lastTailPos.col + 2);
-      this.minitel.writeText(' ');
-    }
-
-    if (this.scoreJustUpdated) {
-      this.minitel.moveCursor(GAME_AREA.bottom + 1, GAME_AREA.right);
-      this.minitel.writeText('  ');
-      this.scoreJustUpdated = false;
-    }
+    // Plus besoin d'effacer les caractères parasites car l'écho est désactivé
   }
 
   startGameIfNeeded() {
     if (!this.gameStarted && !this.gameOver) {
       this.gameStarted = true;
       this.lastMove = Date.now();
-      const msgRow = Math.floor((GAME_AREA.top + GAME_AREA.bottom) / 2) + 5;
-      const msgCol = Math.floor((GAME_AREA.left + GAME_AREA.right) / 2) - 10;
+
+      // Effacer les instructions (rangées 8 à 17)
       this.minitel.setFormat('black');
-      this.minitel.moveCursor(msgRow, msgCol);
-      this.minitel.writeText('                        ');
+      for (let row = 8; row <= 17; row++) {
+        this.minitel.moveCursor(row, 2);
+        this.minitel.writeRepeated(' ', 38);
+      }
+
+      // Dessiner le serpent et la nourriture
+      this.drawSnake();
+      this.spawnFood();
     }
   }
 
@@ -402,7 +413,9 @@ async function main() {
   try {
     console.log('Connexion au Minitel...');
     await minitel.connect();
-    await sleep(500);
+
+    // Désactiver l'écho local pour éviter les caractères parasites
+    await minitel.disableLocalEcho();
 
     const game = new SnakeGame(minitel);
     await game.init();

@@ -107,6 +107,12 @@ export class Minitel {
             // Effacer l'écran pour supprimer les caractères parasites des tentatives précédentes
             await this.clear();
 
+            // Envoyer PRO3 STOP VEILLE pour M2 Télic et Magis Club
+            if (idCode === 'Cvt' || idCode === 'Cv:' || idCode === 'Cv;' ||
+                idCode.startsWith('Cp')) {
+              await this._sendPro3StopVeille();
+            }
+
             // Upgrade de vitesse si demandé et supporté
             if (this.options.autoUpgradeSpeed && deviceInfo.maxSpeed > this.currentBaudRate) {
               const initialSpeed = this.currentBaudRate;
@@ -271,6 +277,23 @@ export class Minitel {
       version: versionStr,
       rawResponse: data.toString('hex')
     };
+  }
+
+  /**
+   * Envoie la commande PRO3 STOP VEILLE pour basculer le Minitel en mode d'affichage
+   * Séquence: ESC PRO3 STOP_VEILLE (1/B 3/B 6/A 5/8 4/1)
+   * Cette commande est nécessaire pour les M2 Télic et Magis Club
+   */
+  async _sendPro3StopVeille() {
+    // Séquence PRO3 STOP VEILLE: 0x1B 0x3B 0x6A 0x58 0x41
+    // 1/B = 0x1B (ESC)
+    // 3/B = 0x3B (;) = PRO3
+    // 6/A = 0x6A (j)
+    // 5/8 = 0x58 (X)
+    // 4/1 = 0x41 (A)
+    const pro3StopVeille = Buffer.from([0x1B, 0x3B, 0x6A, 0x58, 0x41]);
+    await this.write(pro3StopVeille);
+    await this._sleep(100);
   }
 
   /**
